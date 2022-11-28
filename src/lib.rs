@@ -1,13 +1,14 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
+#![no_std]
+#![feature(bool_to_option)]
 use embedded_hal::{
-    delay::blocking::DelayUs,
-    i2c::{blocking::I2c, Error as I2cError},
+    blocking::delay::DelayUs,
+    blocking::i2c::{Write, WriteRead},
 };
 
 pub use config::*;
 pub use error::Error;
 use register::Register;
+
 
 mod config;
 mod error;
@@ -18,7 +19,10 @@ pub struct Es8311<I2C> {
     address: Address,
 }
 
-impl<I2C: I2c<Error = E>, E: I2cError> Es8311<I2C> {
+impl<I2C, E> Es8311<I2C> 
+where 
+    I2C: WriteRead<Error = E> + Write<Error = E> {
+
     pub fn new(i2c: I2C, address: Address) -> Self {
         Self { i2c, address }
     }
@@ -27,7 +31,7 @@ impl<I2C: I2c<Error = E>, E: I2cError> Es8311<I2C> {
         self.i2c
     }
 
-    pub fn init<D: DelayUs>(&mut self, mut delay: D, config: &Config) -> Result<(), Error<E>> {
+    pub fn init<D: DelayUs<u8>>(&mut self, mut delay: D, config: &Config) -> Result<(), Error<E>> {
         self.write_reg(Register::ResetReg00, 0x1F)?;
         let _ = delay.delay_us(20);
         self.write_reg(Register::ResetReg00, 0x00)?;
@@ -35,6 +39,13 @@ impl<I2C: I2c<Error = E>, E: I2cError> Es8311<I2C> {
 
         self.clock_config(config)?;
         self.format_config(config.res_in, config.res_out)?;
+
+        // self.write_reg(Register::SystemReg0B, 0x00)?;
+        // self.write_reg(Register::SystemReg0C, 0x00)?;
+        // self.write_reg(Register::SystemReg10, 0x1F)?;
+        // self.write_reg(Register::SystemReg11, 0x7F)?;
+        // self.write_reg(Register::AdcReg1C, 0x6A)?;
+        // self.write_reg(Register::DacReg37, 0x08)
 
         self.write_reg(Register::SystemReg0D, 0x01)?;
         self.write_reg(Register::SystemReg0E, 0x02)?;
